@@ -372,9 +372,9 @@
 
     <script>
     // ===== Config =====
-    var ENC_SALT = 'HYpLWd5zGfrbQGUaH0cp2Q==';
-    var ENC_IV = 'O4Gqt2ehk+zqH/9l3X8XLA==';
-    var ENC_CT = 'cVxrlTfKedgNwpIyVoey/2ugWRvVqVpYHolVXVXL74CSJMc2wVc+GUEbH2MrM2BW';
+    var ENC_SALT = 'wfSSbTGFKQQKFnPght9GnA==';
+    var ENC_IV = 'R1JHQY2MQ2gsTpaolpjqDg==';
+    var ENC_CT = '+8b3KijESnTFi6fF8+KDPiFUkhZA98SOj+J5TEyyQoXaWSfIJUhgOD5B/2KxCY+k';
     var GH_OWNER = 'idanidanidan';
     var GH_REPO = 'IDANCARDHEART';
     var GH_FILE = 'data.json';
@@ -519,14 +519,15 @@
             if (h === PW_HASH) {
                 try {
                     _ghToken = await decryptPAT(val);
+                    if (!_ghToken || !_ghToken.startsWith('ghp_')) throw new Error('Invalid token');
                     sessionStorage.setItem('_a_verified', '1');
                     sessionStorage.setItem('_gh_t', _ghToken);
                     overlay.classList.add('hidden');
                     panel.style.display = '';
                     initAdmin();
                 } catch(e) {
-                    errEl.textContent = '\u05E9\u05D2\u05D9\u05D0\u05D4 \u05D1\u05E4\u05E2\u05E0\u05D5\u05D7';
-                    console.error(e);
+                    errEl.textContent = '\u05E9\u05D2\u05D9\u05D0\u05D4: ' + e.message;
+                    console.error('Decrypt error:', e);
                 }
             } else {
                 errEl.textContent = '\u05E7\u05D5\u05D3 \u05E9\u05D2\u05D5\u05D9';
