@@ -371,71 +371,85 @@
     </div>
 
     <script>
-    // ===== Access Verification =====
-    (function(){
-        var HASH = '2b756c41351d73f21557e0a65ddbadec8633106c3e8abe974288abddef25773c';
+    // ===== Config =====
+    var ENC_SALT = '+t8Rcq5tNAcL6cDq+mhc9Q==';
+    var ENC_IV = 'JSQ/ZSwgxdzTwKHqlOjv6A==';
+    var ENC_CT = 'Q9sfp4Qtm2P+GCPO6cShFQ+Qyu+tqCoKasLD9jGgTh/ttMy+9WdZ4m/Dc9m750V8';
+    var GH_OWNER = 'idanidanidan';
+    var GH_REPO = 'IDANCARDHEART';
+    var GH_FILE = 'data.json';
+    var PW_HASH = '2b756c41351d73f21557e0a65ddbadec8633106c3e8abe974288abddef25773c';
+    var _ghToken = null;
+
+    // ===== Crypto =====
+    async function sha256(str) {
+        var buf = new TextEncoder().encode(str);
+        var hashBuf = await crypto.subtle.digest('SHA-256', buf);
+        return Array.from(new Uint8Array(hashBuf)).map(function(b){ return b.toString(16).padStart(2,'0'); }).join('');
+    }
+
+    async function decryptPAT(password) {
+        var enc = new TextEncoder();
+        var keyMaterial = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveKey']);
+        var salt = Uint8Array.from(atob(ENC_SALT), function(c){ return c.charCodeAt(0); });
+        var iv = Uint8Array.from(atob(ENC_IV), function(c){ return c.charCodeAt(0); });
+        var ct = Uint8Array.from(atob(ENC_CT), function(c){ return c.charCodeAt(0); });
+        var key = await crypto.subtle.deriveKey(
+            { name: 'PBKDF2', salt: salt, iterations: 100000, hash: 'SHA-1' },
+            keyMaterial,
+            { name: 'AES-CBC', length: 256 },
+            false, ['decrypt']
+        );
+        var decrypted = await crypto.subtle.decrypt({ name: 'AES-CBC', iv: iv }, key, ct);
+        return new TextDecoder().decode(decrypted);
+    }
+
+    // ===== GitHub API =====
+    async function ghGet(path) {
+        return await fetch('https://api.github.com/repos/' + GH_OWNER + '/' + GH_REPO + '/contents/' + path, {
+            headers: { 'Authorization': 'token ' + _ghToken, 'Accept': 'application/vnd.github+json' }
+        });
+    }
+
+    async function ghPut(path, content, sha) {
+        var b64 = btoa(unescape(encodeURIComponent(content)));
+        var body = { message: 'עדכון תוכן מפאנל ניהול', content: b64 };
+        if (sha) body.sha = sha;
+        var resp = await fetch('https://api.github.com/repos/' + GH_OWNER + '/' + GH_REPO + '/contents/' + path, {
+            method: 'PUT',
+            headers: { 'Authorization': 'token ' + _ghToken, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        if (!resp.ok) { var e = await resp.json(); throw new Error(e.message || 'GitHub error'); }
+        return await resp.json();
+    }
+
+    // ===== Main App =====
+    document.addEventListener('DOMContentLoaded', function() {
         var overlay = document.getElementById('lockOverlay');
-        var panel   = document.getElementById('adminPanel');
-        var input   = document.getElementById('lockInput');
-        var btn     = document.getElementById('lockBtn');
-        var errEl   = document.getElementById('lockError');
-
-        // Check if already verified this session
-        if(sessionStorage.getItem('_a_verified') === '1'){
-            overlay.classList.add('hidden');
-            panel.style.display = '';
-        }
-
-        async function sha256(str){
-            var buf = new TextEncoder().encode(str);
-            var hashBuf = await crypto.subtle.digest('SHA-256', buf);
-            var arr = Array.from(new Uint8Array(hashBuf));
-            return arr.map(function(b){ return b.toString(16).padStart(2,'0'); }).join('');
-        }
-
-        async function verify(){
-            var val = input.value;
-            if(!val){ errEl.textContent = '\u05D4\u05D6\u05DF \u05E7\u05D5\u05D3'; return; }
-            var h = await sha256(val);
-            if(h === HASH){
-                sessionStorage.setItem('_a_verified','1');
-                overlay.classList.add('hidden');
-                panel.style.display = '';
-            } else {
-                errEl.textContent = '\u05E7\u05D5\u05D3 \u05E9\u05D2\u05D5\u05D9';
-                input.value = '';
-                input.focus();
-            }
-        }
-
-        btn.addEventListener('click', verify);
-        input.addEventListener('keydown', function(e){ if(e.key==='Enter') verify(); });
-    })();
-
-    // ===== Admin Panel Logic =====
-    (function(){
-        // ===== DOM refs =====
-        var logoInput    = document.getElementById('logoInput');
-        var logoPreview  = document.getElementById('logoPreview');
-        var mainText     = document.getElementById('mainText');
-        var hoursText    = document.getElementById('hoursText');
+        var panel = document.getElementById('adminPanel');
+        var input = document.getElementById('lockInput');
+        var btn = document.getElementById('lockBtn');
+        var errEl = document.getElementById('lockError');
+        var logoInput = document.getElementById('logoInput');
+        var logoPreview = document.getElementById('logoPreview');
+        var mainText = document.getElementById('mainText');
+        var hoursText = document.getElementById('hoursText');
         var donationText = document.getElementById('donationText');
-        var summaryText  = document.getElementById('summaryText');
-        var btnSave      = document.getElementById('btnSave');
-        var btnReset     = document.getElementById('btnReset');
-        var statusBar    = document.getElementById('statusBar');
+        var summaryText = document.getElementById('summaryText');
+        var btnSave = document.getElementById('btnSave');
+        var btnReset = document.getElementById('btnReset');
+        var statusBar = document.getElementById('statusBar');
         var previewFrame = document.getElementById('previewFrame');
-
         var currentLogoData = null;
 
-        // ===== Helper: show status =====
+        // ===== Helpers =====
         function showStatus(msg, type) {
             statusBar.textContent = msg;
             statusBar.className = 'status-bar show ' + type;
-            setTimeout(function(){ statusBar.className = 'status-bar'; }, 3000);
+            setTimeout(function(){ statusBar.className = 'status-bar'; }, 5000);
         }
 
-        // ===== Helper: strip HTML to plain text =====
         function htmlToPlainLines(html) {
             var text = html || '';
             text = text.replace(/<br\s*\/?>/gi, '\n');
@@ -444,143 +458,172 @@
             text = text.replace(/&#8217;/g, "'");
             text = text.replace(/&nbsp;/g, ' ');
             text = text.replace(/&amp;/g, '&');
-            text = text.trim();
-            return text;
+            return text.trim();
         }
 
-        // ===== Helper: plain text to styled hours HTML =====
         function plainToHoursHtml(text) {
             var lines = text.split('\n');
             var html = '';
             for (var i = 0; i < lines.length; i++) {
                 var line = lines[i].trim();
-                if (line) {
-                    html += '<p style="text-align: center;"><span style="color: #ffffff;">' + line + '</span></p>';
-                }
+                if (line) html += '<p style="text-align: center;"><span style="color: #ffffff;">' + line + '</span></p>';
             }
             return html;
         }
 
-        // ===== Load content from localStorage or from iframe defaults =====
-        function loadContent() {
-            var savedImg     = localStorage.getItem('admin_logo_image');
-            var savedMain    = localStorage.getItem('admin_main_text');
-            var savedHours   = localStorage.getItem('admin_hours_text');
-            var savedDonation= localStorage.getItem('admin_donation_text');
-            var savedSummary = localStorage.getItem('admin_summary_text');
+        // ===== Load content from GitHub API =====
+        async function loadFromGitHub() {
+            try {
+                var resp = await ghGet(GH_FILE);
+                if (resp.ok) {
+                    var info = await resp.json();
+                    var raw = decodeURIComponent(escape(atob(info.content.replace(/\n/g, ''))));
+                    var data = JSON.parse(raw);
+                    if (data.logo_image) { currentLogoData = data.logo_image; logoPreview.src = data.logo_image; }
+                    if (data.main_text) mainText.value = htmlToPlainLines(data.main_text);
+                    if (data.hours_text) hoursText.value = htmlToPlainLines(data.hours_text);
+                    if (data.donation_text) donationText.value = htmlToPlainLines(data.donation_text);
+                    if (data.summary_text) summaryText.value = htmlToPlainLines(data.summary_text);
+                    return true;
+                }
+            } catch(e) { console.log('GitHub load error:', e); }
+            return false;
+        }
 
-            if (savedImg) {
-                currentLogoData = savedImg;
-                logoPreview.src = savedImg;
-            }
-
+        function loadFromIframe() {
             previewFrame.addEventListener('load', function onLoad() {
                 try {
                     var doc = previewFrame.contentDocument || previewFrame.contentWindow.document;
-
-                    if (savedMain) {
-                        mainText.value = htmlToPlainLines(savedMain);
-                    } else {
-                        var mainEl = doc.querySelector('[data-id="75f73bb"] .elementor-heading-title');
-                        if (mainEl) mainText.value = htmlToPlainLines(mainEl.innerHTML);
-                    }
-
-                    if (savedHours) {
-                        hoursText.value = htmlToPlainLines(savedHours);
-                    } else {
-                        var hoursEl = doc.querySelector('[data-id="6a11a3c"] .elementor-widget-container');
-                        if (hoursEl) hoursText.value = htmlToPlainLines(hoursEl.innerHTML);
-                    }
-
-                    if (savedDonation) {
-                        donationText.value = htmlToPlainLines(savedDonation);
-                    } else {
-                        var donEl = doc.querySelector('[data-id="6fcf8ed"] .elementor-heading-title');
-                        if (donEl) donationText.value = htmlToPlainLines(donEl.innerHTML);
-                    }
-
-                    if (savedSummary) {
-                        summaryText.value = htmlToPlainLines(savedSummary);
-                    } else {
-                        var sumEl = doc.querySelector('[data-id="5333c9a"] .elementor-heading-title');
-                        if (sumEl) summaryText.value = htmlToPlainLines(sumEl.innerHTML);
-                    }
-                } catch(e) {
-                    console.log('Could not read iframe:', e);
-                }
-                // Only run once on initial load
+                    if (!mainText.value) { var el = doc.querySelector('[data-id="75f73bb"] .elementor-heading-title'); if(el) mainText.value = htmlToPlainLines(el.innerHTML); }
+                    if (!hoursText.value) { var el2 = doc.querySelector('[data-id="6a11a3c"] .elementor-widget-container'); if(el2) hoursText.value = htmlToPlainLines(el2.innerHTML); }
+                    if (!donationText.value) { var el3 = doc.querySelector('[data-id="6fcf8ed"] .elementor-heading-title'); if(el3) donationText.value = htmlToPlainLines(el3.innerHTML); }
+                    if (!summaryText.value) { var el4 = doc.querySelector('[data-id="5333c9a"] .elementor-heading-title'); if(el4) summaryText.value = htmlToPlainLines(el4.innerHTML); }
+                } catch(e) {}
                 previewFrame.removeEventListener('load', onLoad);
             });
         }
+
+        async function initAdmin() {
+            showStatus('⏳ טוען תוכן מ-GitHub...', 'success');
+            var loaded = await loadFromGitHub();
+            if (!loaded) loadFromIframe();
+            showStatus('', '');
+            statusBar.className = 'status-bar';
+        }
+
+        // ===== Lock Screen =====
+        async function verify() {
+            var val = input.value;
+            if (!val) { errEl.textContent = '\u05D4\u05D6\u05DF \u05E7\u05D5\u05D3'; return; }
+            var h = await sha256(val);
+            if (h === PW_HASH) {
+                try {
+                    _ghToken = await decryptPAT(val);
+                    sessionStorage.setItem('_a_verified', '1');
+                    sessionStorage.setItem('_gh_t', _ghToken);
+                    overlay.classList.add('hidden');
+                    panel.style.display = '';
+                    initAdmin();
+                } catch(e) {
+                    errEl.textContent = '\u05E9\u05D2\u05D9\u05D0\u05D4 \u05D1\u05E4\u05E2\u05E0\u05D5\u05D7';
+                    console.error(e);
+                }
+            } else {
+                errEl.textContent = '\u05E7\u05D5\u05D3 \u05E9\u05D2\u05D5\u05D9';
+                input.value = '';
+                input.focus();
+            }
+        }
+
+        // Check if already verified this session
+        if (sessionStorage.getItem('_a_verified') === '1' && sessionStorage.getItem('_gh_t')) {
+            _ghToken = sessionStorage.getItem('_gh_t');
+            overlay.classList.add('hidden');
+            panel.style.display = '';
+            initAdmin();
+        }
+
+        btn.addEventListener('click', verify);
+        input.addEventListener('keydown', function(e){ if(e.key==='Enter') verify(); });
 
         // ===== Image upload =====
         logoInput.addEventListener('change', function(e) {
             var file = e.target.files[0];
             if (!file) return;
-            if (file.size > 5 * 1024 * 1024) {
-                showStatus('התמונה גדולה מדי (מקסימום 5MB)', 'error');
-                return;
-            }
+            if (file.size > 2 * 1024 * 1024) { showStatus('התמונה גדולה מדי (מקסימום 2MB)', 'error'); return; }
             var reader = new FileReader();
             reader.onload = function(ev) {
                 currentLogoData = ev.target.result;
                 logoPreview.src = currentLogoData;
-                showStatus('התמונה הועלתה - לחץ שמור שינויים', 'success');
+                showStatus('התמונה הועלתה - לחץ שמור', 'success');
             };
             reader.readAsDataURL(file);
         });
 
-        // ===== SAVE =====
-        btnSave.addEventListener('click', function() {
+        // ===== SAVE to GitHub =====
+        btnSave.addEventListener('click', async function() {
+            if (!_ghToken) { showStatus('לא מחובר - רענן את הדף', 'error'); return; }
+            btnSave.disabled = true;
+            btnSave.textContent = '⏳ שומר ל-GitHub...';
             try {
-                if (currentLogoData) {
-                    localStorage.setItem('admin_logo_image', currentLogoData);
-                }
+                var data = {
+                    logo_image: currentLogoData || null,
+                    main_text: mainText.value.trim() ? mainText.value.trim().replace(/\n/g, '<br>\n') : null,
+                    hours_text: hoursText.value.trim() ? plainToHoursHtml(hoursText.value) : null,
+                    donation_text: donationText.value.trim() ? '\n' + donationText.value.trim().replace(/\n/g, '<br>\n') + '\n' : null,
+                    summary_text: summaryText.value.trim() ? '\n' + summaryText.value.trim().replace(/\n/g, '<br>\n') : null
+                };
 
-                var mainHtml = mainText.value.trim().replace(/\n/g, '<br>\n');
-                localStorage.setItem('admin_main_text', mainHtml);
+                // Get current SHA
+                var getResp = await ghGet(GH_FILE);
+                var sha = null;
+                if (getResp.ok) { var info = await getResp.json(); sha = info.sha; }
 
-                var hoursHtml = plainToHoursHtml(hoursText.value);
-                localStorage.setItem('admin_hours_text', hoursHtml);
+                // Commit to GitHub
+                await ghPut(GH_FILE, JSON.stringify(data, null, 2), sha);
 
-                var donHtml = '\n' + donationText.value.trim().replace(/\n/g, '<br>\n') + '\n';
-                localStorage.setItem('admin_donation_text', donHtml);
+                // Update preview immediately via DOM
+                try {
+                    var doc = previewFrame.contentDocument || previewFrame.contentWindow.document;
+                    if (data.logo_image) { var img = doc.querySelector('[data-id="6f1d4c6"] img'); if(img) img.src = data.logo_image; }
+                    if (data.main_text) { var el = doc.querySelector('[data-id="75f73bb"] .elementor-heading-title'); if(el) el.innerHTML = data.main_text; }
+                    if (data.hours_text) { var el2 = doc.querySelector('[data-id="6a11a3c"] .elementor-widget-container'); if(el2) el2.innerHTML = data.hours_text; }
+                    if (data.donation_text) { var el3 = doc.querySelector('[data-id="6fcf8ed"] .elementor-heading-title'); if(el3) el3.innerHTML = data.donation_text; }
+                    if (data.summary_text) { var el4 = doc.querySelector('[data-id="5333c9a"] .elementor-heading-title'); if(el4) el4.innerHTML = data.summary_text; }
+                } catch(e) {}
 
-                var sumHtml = '\n' + summaryText.value.trim().replace(/\n/g, '<br>\n');
-                localStorage.setItem('admin_summary_text', sumHtml);
-
-                // Refresh the live preview
-                previewFrame.src = 'index.html?t=' + Date.now();
-
-                showStatus('השינויים נשמרו בהצלחה!', 'success');
+                showStatus('✅ נשמר בהצלחה! האתר יתעדכן תוך ~30 שניות', 'success');
             } catch(e) {
-                showStatus('שגיאה בשמירה: ' + e.message, 'error');
+                showStatus('❌ שגיאה: ' + e.message, 'error');
             }
+            btnSave.disabled = false;
+            btnSave.textContent = '💾 שמור שינויים';
         });
 
         // ===== RESET =====
-        btnReset.addEventListener('click', function() {
+        btnReset.addEventListener('click', async function() {
             if (!confirm('האם אתה בטוח? כל השינויים יימחקו ויחזרו לברירת המחדל.')) return;
-
-            localStorage.removeItem('admin_logo_image');
-            localStorage.removeItem('admin_main_text');
-            localStorage.removeItem('admin_hours_text');
-            localStorage.removeItem('admin_donation_text');
-            localStorage.removeItem('admin_summary_text');
-
-            currentLogoData = null;
-            logoPreview.src = 'images/heart.jfif';
-
-            previewFrame.src = 'index.html?t=' + Date.now();
-            setTimeout(function(){ location.reload(); }, 500);
-
-            showStatus('הכל אופס לברירת מחדל', 'success');
+            if (!_ghToken) { showStatus('לא מחובר', 'error'); return; }
+            btnReset.disabled = true;
+            btnReset.textContent = '⏳ מאפס...';
+            try {
+                var data = { logo_image: null, main_text: null, hours_text: null, donation_text: null, summary_text: null };
+                var getResp = await ghGet(GH_FILE);
+                var sha = null;
+                if (getResp.ok) { var info = await getResp.json(); sha = info.sha; }
+                await ghPut(GH_FILE, JSON.stringify(data, null, 2), sha);
+                currentLogoData = null;
+                logoPreview.src = 'images/heart.jfif';
+                mainText.value = ''; hoursText.value = ''; donationText.value = ''; summaryText.value = '';
+                previewFrame.src = 'index.html?t=' + Date.now();
+                showStatus('✅ הכל אופס! האתר יתעדכן תוך ~30 שניות', 'success');
+            } catch(e) {
+                showStatus('❌ שגיאה: ' + e.message, 'error');
+            }
+            btnReset.disabled = false;
+            btnReset.textContent = '🔄 אפס הכל';
         });
-
-        // ===== Init =====
-        loadContent();
-
-    })();
+    });
     </script>
 </body>
 </html>

@@ -803,40 +803,33 @@ var ekit_config = {"ajaxurl":"https:\/\/minicard.app\/wp-admin\/admin-ajax.php",
 		</nav>
 			</body>
 <script>
-// ===== ADMIN SYNC: Read localStorage and apply saved content =====
+// ===== CONTENT SYNC: Fetch data.json and apply saved content =====
 (function(){
-  try {
-    // Logo image
-    var savedImg = localStorage.getItem('admin_logo_image');
-    if(savedImg){
-      var logoEl = document.querySelector('[data-id="6f1d4c6"] img');
-      if(logoEl){ logoEl.src = savedImg; }
-    }
-    // Main description text
-    var savedMain = localStorage.getItem('admin_main_text');
-    if(savedMain){
-      var mainEl = document.querySelector('[data-id="75f73bb"] .elementor-heading-title');
-      if(mainEl){ mainEl.innerHTML = savedMain; }
-    }
-    // Hours & location
-    var savedHours = localStorage.getItem('admin_hours_text');
-    if(savedHours){
-      var hoursEl = document.querySelector('[data-id="6a11a3c"] .elementor-widget-container');
-      if(hoursEl){ hoursEl.innerHTML = savedHours; }
-    }
-    // Donation options
-    var savedDonation = localStorage.getItem('admin_donation_text');
-    if(savedDonation){
-      var donationEl = document.querySelector('[data-id="6fcf8ed"] .elementor-heading-title');
-      if(donationEl){ donationEl.innerHTML = savedDonation; }
-    }
-    // Summary
-    var savedSummary = localStorage.getItem('admin_summary_text');
-    if(savedSummary){
-      var summaryEl = document.querySelector('[data-id="5333c9a"] .elementor-heading-title');
-      if(summaryEl){ summaryEl.innerHTML = savedSummary; }
-    }
-  }catch(e){ console.log('Admin sync error:', e); }
+  fetch('data.json')
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      if(data.logo_image){
+        var logoEl = document.querySelector('[data-id="6f1d4c6"] img');
+        if(logoEl) logoEl.src = data.logo_image;
+      }
+      if(data.main_text){
+        var mainEl = document.querySelector('[data-id="75f73bb"] .elementor-heading-title');
+        if(mainEl) mainEl.innerHTML = data.main_text;
+      }
+      if(data.hours_text){
+        var hoursEl = document.querySelector('[data-id="6a11a3c"] .elementor-widget-container');
+        if(hoursEl) hoursEl.innerHTML = data.hours_text;
+      }
+      if(data.donation_text){
+        var donationEl = document.querySelector('[data-id="6fcf8ed"] .elementor-heading-title');
+        if(donationEl) donationEl.innerHTML = data.donation_text;
+      }
+      if(data.summary_text){
+        var summaryEl = document.querySelector('[data-id="5333c9a"] .elementor-heading-title');
+        if(summaryEl) summaryEl.innerHTML = data.summary_text;
+      }
+    })
+    .catch(function(e){ console.log('Content sync error:', e); });
 })();
 </script>
 <script>'undefined'=== typeof _trfq || (window._trfq = []);'undefined'=== typeof _trfd && (window._trfd=[]),_trfd.push({'tccl.baseHost':'secureserver.net'},{'ap':'cpbh-mt'},{'server':'p3plmcpnl494786'},{'dcenter':'p3'},{'cp_id':'3024460'},{'cp_cl':'8'}) // Monitoring performance to make your website faster. If you want to opt-out, please contact web hosting support.</script><script src='https://img1.wsimg.com/traffic-assets/js/tccl.min.js'></script></html>
