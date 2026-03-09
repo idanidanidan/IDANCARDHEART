@@ -747,6 +747,10 @@ window.addEventListener('sfsi_functions_loaded', function() {
       var logoEl = document.querySelector('[data-id="6f1d4c6"] img');
       if(logoEl) logoEl.src = data.logo_image;
     }
+    if(data.main_photo){
+      var photoEl = document.querySelector('[data-id="9ffdf9b"] img');
+      if(photoEl) { photoEl.src = data.main_photo; photoEl.srcset = ''; }
+    }
     if(data.main_text){
       var mainEl = document.querySelector('[data-id="75f73bb"] .elementor-heading-title');
       if(mainEl) mainEl.innerHTML = data.main_text;

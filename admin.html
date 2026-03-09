@@ -321,6 +321,16 @@
                 </div>
             </div>
 
+            <!-- 1.5 Main Photo -->
+            <div class="section-card">
+                <label><span class="label-icon">&#x1F4F7;</span> תמונה ראשית (הגדולה)</label>
+                <div class="upload-area" id="uploadAreaPhoto">
+                    <img id="mainPhotoPreview" src="images/photo-main.jpg" alt="תצוגה מקדימה">
+                    <div class="upload-text">לחץ כאן או גרור תמונה (JPG, PNG, GIF, WEBP - עד 5MB)</div>
+                    <input type="file" id="mainPhotoInput" accept="image/jpeg,image/png,image/gif,image/webp,image/svg+xml,image/bmp,.jfif,.jpg,.jpeg,.png,.gif,.webp">
+                </div>
+            </div>
+
             <!-- 2. Main Description -->
             <div class="section-card">
                 <label><span class="label-icon">&#x1F4DD;</span> תיאור ראשי</label>
@@ -433,6 +443,8 @@
         var errEl = document.getElementById('lockError');
         var logoInput = document.getElementById('logoInput');
         var logoPreview = document.getElementById('logoPreview');
+        var mainPhotoInput = document.getElementById('mainPhotoInput');
+        var mainPhotoPreview = document.getElementById('mainPhotoPreview');
         var mainText = document.getElementById('mainText');
         var hoursText = document.getElementById('hoursText');
         var donationText = document.getElementById('donationText');
@@ -442,6 +454,7 @@
         var statusBar = document.getElementById('statusBar');
         var previewFrame = document.getElementById('previewFrame');
         var currentLogoData = null;
+        var currentMainPhotoData = null;
 
         // ===== Helpers =====
         function showStatus(msg, type) {
@@ -480,6 +493,7 @@
                     var raw = decodeURIComponent(escape(atob(info.content.replace(/\n/g, ''))));
                     var data = JSON.parse(raw);
                     if (data.logo_image) { currentLogoData = data.logo_image; logoPreview.src = data.logo_image; }
+                    if (data.main_photo) { currentMainPhotoData = data.main_photo; mainPhotoPreview.src = data.main_photo; }
                     if (data.main_text) mainText.value = htmlToPlainLines(data.main_text);
                     if (data.hours_text) hoursText.value = htmlToPlainLines(data.hours_text);
                     if (data.donation_text) donationText.value = htmlToPlainLines(data.donation_text);
@@ -595,6 +609,52 @@
             tempReader.readAsDataURL(file);
         });
 
+        // ===== Main Photo upload =====
+        mainPhotoInput.addEventListener('change', function(e) {
+            var file = e.target.files[0];
+            if (!file) return;
+            var validTypes = ['image/jpeg','image/png','image/gif','image/webp','image/svg+xml','image/bmp','image/jfif','image/pjpeg'];
+            if (!file.type.startsWith('image/') && !validTypes.includes(file.type)) {
+                showStatus('❌ סוג קובץ לא נתמך - השתמש ב-JPG, PNG, GIF, WEBP', 'error');
+                return;
+            }
+            if (file.size > 5 * 1024 * 1024) {
+                showStatus('❌ התמונה גדולה מדי (' + (file.size/1024/1024).toFixed(1) + 'MB) - מקסימום 5MB', 'error');
+                return;
+            }
+            showStatus('⏳ מעבד תמונה ראשית...', 'success');
+            var img = new Image();
+            img.onload = function() {
+                var canvas = document.createElement('canvas');
+                var maxW = 1200, maxH = 1600;
+                var w = img.width, h = img.height;
+                if (w > maxW || h > maxH) {
+                    var ratio = Math.min(maxW/w, maxH/h);
+                    w = Math.round(w * ratio);
+                    h = Math.round(h * ratio);
+                }
+                canvas.width = w;
+                canvas.height = h;
+                canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                currentMainPhotoData = canvas.toDataURL('image/jpeg', 0.85);
+                mainPhotoPreview.src = currentMainPhotoData;
+                var sizeKB = Math.round(currentMainPhotoData.length * 0.75 / 1024);
+                showStatus('✅ תמונה ראשית הועלתה (' + sizeKB + 'KB) - לחץ שמור', 'success');
+            };
+            img.onerror = function() {
+                var reader = new FileReader();
+                reader.onload = function(ev) {
+                    currentMainPhotoData = ev.target.result;
+                    mainPhotoPreview.src = currentMainPhotoData;
+                    showStatus('✅ תמונה ראשית הועלתה - לחץ שמור', 'success');
+                };
+                reader.readAsDataURL(file);
+            };
+            var tempReader = new FileReader();
+            tempReader.onload = function(ev) { img.src = ev.target.result; };
+            tempReader.readAsDataURL(file);
+        });
+
         // ===== SAVE to GitHub =====
         btnSave.addEventListener('click', async function() {
             if (!_ghToken) { showStatus('לא מחובר - רענן את הדף', 'error'); return; }
@@ -603,6 +663,7 @@
             try {
                 var data = {
                     logo_image: currentLogoData || null,
+                    main_photo: currentMainPhotoData || null,
                     main_text: mainText.value.trim() ? mainText.value.trim().replace(/\n/g, '<br>\n') : null,
                     hours_text: hoursText.value.trim() ? plainToHoursHtml(hoursText.value) : null,
                     donation_text: donationText.value.trim() ? '\n' + donationText.value.trim().replace(/\n/g, '<br>\n') + '\n' : null,
@@ -621,6 +682,7 @@
                 try {
                     var doc = previewFrame.contentDocument || previewFrame.contentWindow.document;
                     if (data.logo_image) { var img = doc.querySelector('[data-id="6f1d4c6"] img'); if(img) img.src = data.logo_image; }
+                    if (data.main_photo) { var ph = doc.querySelector('[data-id="9ffdf9b"] img'); if(ph) { ph.src = data.main_photo; ph.srcset = ''; } }
                     if (data.main_text) { var el = doc.querySelector('[data-id="75f73bb"] .elementor-heading-title'); if(el) el.innerHTML = data.main_text; }
                     if (data.hours_text) { var el2 = doc.querySelector('[data-id="6a11a3c"] .elementor-widget-container'); if(el2) el2.innerHTML = data.hours_text; }
                     if (data.donation_text) { var el3 = doc.querySelector('[data-id="6fcf8ed"] .elementor-heading-title'); if(el3) el3.innerHTML = data.donation_text; }
@@ -642,13 +704,15 @@
             btnReset.disabled = true;
             btnReset.textContent = '⏳ מאפס...';
             try {
-                var data = { logo_image: null, main_text: null, hours_text: null, donation_text: null, summary_text: null };
+                var data = { logo_image: null, main_photo: null, main_text: null, hours_text: null, donation_text: null, summary_text: null };
                 var getResp = await ghGet(GH_FILE);
                 var sha = null;
                 if (getResp.ok) { var info = await getResp.json(); sha = info.sha; }
                 await ghPut(GH_FILE, JSON.stringify(data, null, 2), sha);
                 currentLogoData = null;
+                currentMainPhotoData = null;
                 logoPreview.src = 'images/heart.jfif';
+                mainPhotoPreview.src = 'images/photo-main.jpg';
                 mainText.value = ''; hoursText.value = ''; donationText.value = ''; summaryText.value = '';
                 previewFrame.src = 'index.html?t=' + Date.now();
                 showStatus('✅ הכל אופס! האתר יתעדכן תוך ~30 שניות', 'success');
