@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ניהול - לב גדול לכולם</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: "Assistant", "Segoe UI", Arial, sans-serif;
+            background: #0f0f0f;
+            color: #e0e0e0;
+            min-height: 100vh;
+        }
+        .admin-layout {
+            display: flex;
+            height: 100vh;
+        }
+        /* ===== RIGHT PANEL: Editor (RTL so it's on the right) ===== */
+        .editor-panel {
+            width: 420px;
+            min-width: 420px;
+            background: #1a1a2e;
+            border-left: 2px solid #40AEC6;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+        .editor-panel h1 {
+            font-size: 22px;
+            color: #40AEC6;
+            text-align: center;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #333;
+        }
+        .editor-panel h1 span {
+            font-size: 14px;
+            color: #888;
+            display: block;
+            margin-top: 4px;
+        }
+        /* Lock overlay */
+        .lock-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: #0f0f0f;
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .lock-overlay.hidden { display: none; }
+        .lock-box {
+            background: #1a1a2e;
+            border: 1px solid #333;
+            border-radius: 14px;
+            padding: 40px 36px;
+            text-align: center;
+            max-width: 360px;
+            width: 90%;
+        }
+        .lock-box .lock-icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+        }
+        .lock-box h2 {
+            color: #40AEC6;
+            font-size: 20px;
+            margin-bottom: 6px;
+        }
+        .lock-box p {
+            color: #888;
+            font-size: 13px;
+            margin-bottom: 20px;
+        }
+        .lock-box input {
+            width: 100%;
+            padding: 12px;
+            background: #0f0f0f;
+            color: #e0e0e0;
+            border: 1px solid #444;
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 15px;
+            text-align: center;
+            direction: ltr;
+        }
+        .lock-box input:focus {
+            outline: none;
+            border-color: #40AEC6;
+            box-shadow: 0 0 0 2px rgba(64,174,198,0.2);
+        }
+        .lock-box .lock-btn {
+            width: 100%;
+            padding: 12px;
+            margin-top: 12px;
+            background: #40AEC6;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .lock-box .lock-btn:hover {
+            background: #35929e;
+        }
+        .lock-box .lock-error {
+            color: #e74c3c;
+            font-size: 13px;
+            margin-top: 10px;
+            min-height: 18px;
+        }
+        .section-card {
+            background: #16213e;
+            border-radius: 10px;
+            padding: 16px;
+            border: 1px solid #333;
+            transition: border-color 0.3s;
+        }
+        .section-card:hover {
+            border-color: #40AEC6;
+        }
+        .section-card label {
+            display: block;
+            font-size: 15px;
+            font-weight: 700;
+            color: #40AEC6;
+            margin-bottom: 10px;
+        }
+        .section-card label .label-icon {
+            margin-left: 6px;
+        }
+        textarea {
+            width: 100%;
+            min-height: 120px;
+            background: #0f0f0f;
+            color: #e0e0e0;
+            border: 1px solid #444;
+            border-radius: 6px;
+            padding: 10px;
+            font-family: inherit;
+            font-size: 14px;
+            line-height: 1.6;
+            resize: vertical;
+            direction: rtl;
+        }
+        textarea:focus {
+            outline: none;
+            border-color: #40AEC6;
+            box-shadow: 0 0 0 2px rgba(64,174,198,0.2);
+        }
+        /* Image upload */
+        .upload-area {
+            position: relative;
+            border: 2px dashed #444;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: #0f0f0f;
+        }
+        .upload-area:hover {
+            border-color: #40AEC6;
+            background: #1a1a2e;
+        }
+        .upload-area img {
+            max-width: 100%;
+            max-height: 150px;
+            border-radius: 6px;
+            margin-bottom: 8px;
+        }
+        .upload-area .upload-text {
+            color: #888;
+            font-size: 13px;
+        }
+        .upload-area input[type="file"] {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            opacity: 0;
+            cursor: pointer;
+        }
+        /* Buttons */
+        .btn-row {
+            display: flex;
+            gap: 10px;
+        }
+        .btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .btn-save {
+            background: #40AEC6;
+            color: #fff;
+        }
+        .btn-save:hover {
+            background: #35929e;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(64,174,198,0.3);
+        }
+        .btn-reset {
+            background: #c0392b;
+            color: #fff;
+        }
+        .btn-reset:hover {
+            background: #a93226;
+        }
+        /* Status */
+        .status-bar {
+            text-align: center;
+            padding: 8px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .status-bar.show {
+            opacity: 1;
+        }
+        .status-bar.success {
+            background: rgba(39,174,96,0.2);
+            color: #27ae60;
+            border: 1px solid #27ae60;
+        }
+        .status-bar.error {
+            background: rgba(192,57,43,0.2);
+            color: #e74c3c;
+            border: 1px solid #e74c3c;
+        }
+        /* ===== LEFT PANEL: Live Preview ===== */
+        .preview-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: #111;
+        }
+        .preview-header {
+            background: #1a1a2e;
+            padding: 8px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid #333;
+        }
+        .preview-header span {
+            color: #888;
+            font-size: 13px;
+        }
+        .preview-header .dot {
+            width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-left: 5px;
+        }
+        .dot-red { background: #e74c3c; }
+        .dot-yellow { background: #f1c40f; }
+        .dot-green { background: #27ae60; }
+        .preview-panel iframe {
+            flex: 1;
+            border: none;
+            background: #fff;
+        }
+        /* Back link */
+        .back-link {
+            text-align: center;
+            padding: 6px;
+        }
+        .back-link a {
+            color: #666;
+            font-size: 12px;
+            text-decoration: none;
+        }
+        .back-link a:hover { color: #40AEC6; }
+        /* Scrollbar */
+        .editor-panel::-webkit-scrollbar { width: 6px; }
+        .editor-panel::-webkit-scrollbar-track { background: #1a1a2e; }
+        .editor-panel::-webkit-scrollbar-thumb { background: #40AEC6; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <!-- Lock Screen -->
+    <div class="lock-overlay" id="lockOverlay">
+        <div class="lock-box">
+            <div class="lock-icon">&#x2764;&#xFE0F;</div>
+            <h2>לב גדול לכולם</h2>
+            <input type="password" id="lockInput" placeholder="" autofocus style="border:none;background:transparent;color:transparent;caret-color:#40AEC6;text-align:center;">
+            <button class="lock-btn" id="lockBtn" style="display:none;"></button>
+            <div class="lock-error" id="lockError"></div>
+        </div>
+    </div>
+
+    <div class="admin-layout" id="adminPanel" style="display:none;">
+        <!-- ===== EDITOR PANEL ===== -->
+        <div class="editor-panel">
+            <h1>
+                &#x1F6E0;&#xFE0F; ניהול תוכן
+                <span>עריכת תוכן הדף</span>
+            </h1>
+
+            <div id="statusBar" class="status-bar"></div>
+
+            <!-- 1. Logo Image -->
+            <div class="section-card">
+                <label><span class="label-icon">&#x1F5BC;&#xFE0F;</span> לוגו / תמונה ראשית</label>
+                <div class="upload-area" id="uploadArea">
+                    <img id="logoPreview" src="images/heart.jfif" alt="תצוגה מקדימה">
+                    <div class="upload-text">לחץ כאן או גרור תמונה חדשה</div>
+                    <input type="file" id="logoInput" accept="image/*">
+                </div>
+            </div>
+
+            <!-- 2. Main Description -->
+            <div class="section-card">
+                <label><span class="label-icon">&#x1F4DD;</span> תיאור ראשי</label>
+                <textarea id="mainText" rows="8" placeholder="הטקסט הראשי שמופיע מתחת ללוגו..."></textarea>
+            </div>
+
+            <!-- 3. Hours & Location -->
+            <div class="section-card">
+                <label><span class="label-icon">&#x1F550;</span> שעות ומיקום</label>
+                <textarea id="hoursText" rows="6" placeholder="שעות פעילות ומיקומי איסוף..."></textarea>
+            </div>
+
+            <!-- 4. Donation Options -->
+            <div class="section-card">
+                <label><span class="label-icon">&#x1F381;</span> אפשרויות להתרמה</label>
+                <textarea id="donationText" rows="6" placeholder="רשימת מוצרים ואפשרויות תרומה..."></textarea>
+            </div>
+
+            <!-- 5. Summary -->
+            <div class="section-card">
+                <label><span class="label-icon">&#x1F4CB;</span> לסיכום</label>
+                <textarea id="summaryText" rows="6" placeholder="טקסט סיכום..."></textarea>
+            </div>
+
+            <!-- Buttons -->
+            <div class="btn-row">
+                <button class="btn btn-save" id="btnSave">&#x1F4BE; שמור שינויים</button>
+                <button class="btn btn-reset" id="btnReset">&#x1F504; אפס הכל</button>
+            </div>
+
+            <div class="back-link">
+                <a href="index.html">&larr; חזרה לדף הראשי</a>
+            </div>
+        </div>
+
+        <!-- ===== LIVE PREVIEW ===== -->
+        <div class="preview-panel">
+            <div class="preview-header">
+                <span>תצוגה מקדימה חיה</span>
+                <div>
+                    <span class="dot dot-green"></span>
+                    <span class="dot dot-yellow"></span>
+                    <span class="dot dot-red"></span>
+                </div>
+            </div>
+            <iframe id="previewFrame" src="index.html"></iframe>
+        </div>
+    </div>
+
+    <script>
+    // ===== Access Verification =====
+    (function(){
+        var HASH = '2b756c41351d73f21557e0a65ddbadec8633106c3e8abe974288abddef25773c';
+        var overlay = document.getElementById('lockOverlay');
+        var panel   = document.getElementById('adminPanel');
+        var input   = document.getElementById('lockInput');
+        var btn     = document.getElementById('lockBtn');
+        var errEl   = document.getElementById('lockError');
+
+        // Check if already verified this session
+        if(sessionStorage.getItem('_a_verified') === '1'){
+            overlay.classList.add('hidden');
+            panel.style.display = '';
+        }
+
+        async function sha256(str){
+            var buf = new TextEncoder().encode(str);
+            var hashBuf = await crypto.subtle.digest('SHA-256', buf);
+            var arr = Array.from(new Uint8Array(hashBuf));
+            return arr.map(function(b){ return b.toString(16).padStart(2,'0'); }).join('');
+        }
+
+        async function verify(){
+            var val = input.value;
+            if(!val){ errEl.textContent = '\u05D4\u05D6\u05DF \u05E7\u05D5\u05D3'; return; }
+            var h = await sha256(val);
+            if(h === HASH){
+                sessionStorage.setItem('_a_verified','1');
+                overlay.classList.add('hidden');
+                panel.style.display = '';
+            } else {
+                errEl.textContent = '\u05E7\u05D5\u05D3 \u05E9\u05D2\u05D5\u05D9';
+                input.value = '';
+                input.focus();
+            }
+        }
+
+        btn.addEventListener('click', verify);
+        input.addEventListener('keydown', function(e){ if(e.key==='Enter') verify(); });
+    })();
+
+    // ===== Admin Panel Logic =====
+    (function(){
+        // ===== DOM refs =====
+        var logoInput    = document.getElementById('logoInput');
+        var logoPreview  = document.getElementById('logoPreview');
+        var mainText     = document.getElementById('mainText');
+        var hoursText    = document.getElementById('hoursText');
+        var donationText = document.getElementById('donationText');
+        var summaryText  = document.getElementById('summaryText');
+        var btnSave      = document.getElementById('btnSave');
+        var btnReset     = document.getElementById('btnReset');
+        var statusBar    = document.getElementById('statusBar');
+        var previewFrame = document.getElementById('previewFrame');
+
+        var currentLogoData = null;
+
+        // ===== Helper: show status =====
+        function showStatus(msg, type) {
+            statusBar.textContent = msg;
+            statusBar.className = 'status-bar show ' + type;
+            setTimeout(function(){ statusBar.className = 'status-bar'; }, 3000);
+        }
+
+        // ===== Helper: strip HTML to plain text =====
+        function htmlToPlainLines(html) {
+            var text = html || '';
+            text = text.replace(/<br\s*\/?>/gi, '\n');
+            text = text.replace(/<\/p>\s*<p[^>]*>/gi, '\n\n');
+            text = text.replace(/<[^>]+>/g, '');
+            text = text.replace(/&#8217;/g, "'");
+            text = text.replace(/&nbsp;/g, ' ');
+            text = text.replace(/&amp;/g, '&');
+            text = text.trim();
+            return text;
+        }
+
+        // ===== Helper: plain text to styled hours HTML =====
+        function plainToHoursHtml(text) {
+            var lines = text.split('\n');
+            var html = '';
+            for (var i = 0; i < lines.length; i++) {
+                var line = lines[i].trim();
+                if (line) {
+                    html += '<p style="text-align: center;"><span style="color: #ffffff;">' + line + '</span></p>';
+                }
+            }
+            return html;
+        }
+
+        // ===== Load content from localStorage or from iframe defaults =====
+        function loadContent() {
+            var savedImg     = localStorage.getItem('admin_logo_image');
+            var savedMain    = localStorage.getItem('admin_main_text');
+            var savedHours   = localStorage.getItem('admin_hours_text');
+            var savedDonation= localStorage.getItem('admin_donation_text');
+            var savedSummary = localStorage.getItem('admin_summary_text');
+
+            if (savedImg) {
+                currentLogoData = savedImg;
+                logoPreview.src = savedImg;
+            }
+
+            previewFrame.addEventListener('load', function onLoad() {
+                try {
+                    var doc = previewFrame.contentDocument || previewFrame.contentWindow.document;
+
+                    if (savedMain) {
+                        mainText.value = htmlToPlainLines(savedMain);
+                    } else {
+                        var mainEl = doc.querySelector('[data-id="75f73bb"] .elementor-heading-title');
+                        if (mainEl) mainText.value = htmlToPlainLines(mainEl.innerHTML);
+                    }
+
+                    if (savedHours) {
+                        hoursText.value = htmlToPlainLines(savedHours);
+                    } else {
+                        var hoursEl = doc.querySelector('[data-id="6a11a3c"] .elementor-widget-container');
+                        if (hoursEl) hoursText.value = htmlToPlainLines(hoursEl.innerHTML);
+                    }
+
+                    if (savedDonation) {
+                        donationText.value = htmlToPlainLines(savedDonation);
+                    } else {
+                        var donEl = doc.querySelector('[data-id="6fcf8ed"] .elementor-heading-title');
+                        if (donEl) donationText.value = htmlToPlainLines(donEl.innerHTML);
+                    }
+
+                    if (savedSummary) {
+                        summaryText.value = htmlToPlainLines(savedSummary);
+                    } else {
+                        var sumEl = doc.querySelector('[data-id="5333c9a"] .elementor-heading-title');
+                        if (sumEl) summaryText.value = htmlToPlainLines(sumEl.innerHTML);
+                    }
+                } catch(e) {
+                    console.log('Could not read iframe:', e);
+                }
+                // Only run once on initial load
+                previewFrame.removeEventListener('load', onLoad);
+            });
+        }
+
+        // ===== Image upload =====
+        logoInput.addEventListener('change', function(e) {
+            var file = e.target.files[0];
+            if (!file) return;
+            if (file.size > 5 * 1024 * 1024) {
+                showStatus('התמונה גדולה מדי (מקסימום 5MB)', 'error');
+                return;
+            }
+            var reader = new FileReader();
+            reader.onload = function(ev) {
+                currentLogoData = ev.target.result;
+                logoPreview.src = currentLogoData;
+                showStatus('התמונה הועלתה - לחץ שמור שינויים', 'success');
+            };
+            reader.readAsDataURL(file);
+        });
+
+        // ===== SAVE =====
+        btnSave.addEventListener('click', function() {
+            try {
+                if (currentLogoData) {
+                    localStorage.setItem('admin_logo_image', currentLogoData);
+                }
+
+                var mainHtml = mainText.value.trim().replace(/\n/g, '<br>\n');
+                localStorage.setItem('admin_main_text', mainHtml);
+
+                var hoursHtml = plainToHoursHtml(hoursText.value);
+                localStorage.setItem('admin_hours_text', hoursHtml);
+
+                var donHtml = '\n' + donationText.value.trim().replace(/\n/g, '<br>\n') + '\n';
+                localStorage.setItem('admin_donation_text', donHtml);
+
+                var sumHtml = '\n' + summaryText.value.trim().replace(/\n/g, '<br>\n');
+                localStorage.setItem('admin_summary_text', sumHtml);
+
+                // Refresh the live preview
+                previewFrame.src = 'index.html?t=' + Date.now();
+
+                showStatus('השינויים נשמרו בהצלחה!', 'success');
+            } catch(e) {
+                showStatus('שגיאה בשמירה: ' + e.message, 'error');
+            }
+        });
+
+        // ===== RESET =====
+        btnReset.addEventListener('click', function() {
+            if (!confirm('האם אתה בטוח? כל השינויים יימחקו ויחזרו לברירת המחדל.')) return;
+
+            localStorage.removeItem('admin_logo_image');
+            localStorage.removeItem('admin_main_text');
+            localStorage.removeItem('admin_hours_text');
+            localStorage.removeItem('admin_donation_text');
+            localStorage.removeItem('admin_summary_text');
+
+            currentLogoData = null;
+            logoPreview.src = 'images/heart.jfif';
+
+            previewFrame.src = 'index.html?t=' + Date.now();
+            setTimeout(function(){ location.reload(); }, 500);
+
+            showStatus('הכל אופס לברירת מחדל', 'success');
+        });
+
+        // ===== Init =====
+        loadContent();
+
+    })();
+    </script>
+</body>
+</html>

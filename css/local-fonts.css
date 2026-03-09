@@ -1,0 +1,27 @@
+/* Override @font-face for ekiticons to use local font */
+@font-face {
+    font-family: elementskit;
+    src: url(elementskit.woff) format("woff");
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+
+/* Override @font-face for Happy Icons to use local font */
+@font-face {
+    font-family: "Happy Icons";
+    src: url("happy-icons.woff2") format("woff2"),
+         url("happy-icons.woff") format("woff");
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+}
+
+/* Override @font-face for Elementor eicons to use local font */
+@font-face {
+    font-family: eicons;
+    src: url(eicons.woff2) format("woff2");
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+}
