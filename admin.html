@@ -316,8 +316,8 @@
                 <label><span class="label-icon">&#x1F5BC;&#xFE0F;</span> לוגו / תמונה ראשית</label>
                 <div class="upload-area" id="uploadArea">
                     <img id="logoPreview" src="images/heart.jfif" alt="תצוגה מקדימה">
-                    <div class="upload-text">לחץ כאן או גרור תמונה חדשה</div>
-                    <input type="file" id="logoInput" accept="image/*">
+                    <div class="upload-text">לחץ כאן או גרור תמונה (JPG, PNG, GIF, WEBP - עד 5MB)</div>
+                    <input type="file" id="logoInput" accept="image/jpeg,image/png,image/gif,image/webp,image/svg+xml,image/bmp,.jfif,.jpg,.jpeg,.png,.gif,.webp">
                 </div>
             </div>
 
@@ -551,14 +551,48 @@
         logoInput.addEventListener('change', function(e) {
             var file = e.target.files[0];
             if (!file) return;
-            if (file.size > 2 * 1024 * 1024) { showStatus('התמונה גדולה מדי (מקסימום 2MB)', 'error'); return; }
-            var reader = new FileReader();
-            reader.onload = function(ev) {
-                currentLogoData = ev.target.result;
+            var validTypes = ['image/jpeg','image/png','image/gif','image/webp','image/svg+xml','image/bmp','image/jfif','image/pjpeg'];
+            if (!file.type.startsWith('image/') && !validTypes.includes(file.type)) {
+                showStatus('❌ סוג קובץ לא נתמך: ' + (file.type || file.name.split('.').pop()) + ' - השתמש ב-JPG, PNG, GIF, WEBP', 'error');
+                return;
+            }
+            if (file.size > 5 * 1024 * 1024) { 
+                showStatus('❌ התמונה גדולה מדי (' + (file.size/1024/1024).toFixed(1) + 'MB) - מקסימום 5MB', 'error'); 
+                return; 
+            }
+            showStatus('⏳ מעבד תמונה...', 'success');
+            // Compress image using canvas
+            var img = new Image();
+            img.onload = function() {
+                var canvas = document.createElement('canvas');
+                var maxW = 800, maxH = 800;
+                var w = img.width, h = img.height;
+                if (w > maxW || h > maxH) {
+                    var ratio = Math.min(maxW/w, maxH/h);
+                    w = Math.round(w * ratio);
+                    h = Math.round(h * ratio);
+                }
+                canvas.width = w;
+                canvas.height = h;
+                canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                currentLogoData = canvas.toDataURL('image/jpeg', 0.85);
                 logoPreview.src = currentLogoData;
-                showStatus('התמונה הועלתה - לחץ שמור', 'success');
+                var sizeKB = Math.round(currentLogoData.length * 0.75 / 1024);
+                showStatus('✅ תמונה הועלתה (' + sizeKB + 'KB) - לחץ שמור', 'success');
             };
-            reader.readAsDataURL(file);
+            img.onerror = function() {
+                // Fallback: use raw file if canvas fails (e.g. SVG)
+                var reader = new FileReader();
+                reader.onload = function(ev) {
+                    currentLogoData = ev.target.result;
+                    logoPreview.src = currentLogoData;
+                    showStatus('✅ תמונה הועלתה - לחץ שמור', 'success');
+                };
+                reader.readAsDataURL(file);
+            };
+            var tempReader = new FileReader();
+            tempReader.onload = function(ev) { img.src = ev.target.result; };
+            tempReader.readAsDataURL(file);
         });
 
         // ===== SAVE to GitHub =====
